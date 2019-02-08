@@ -1,8 +1,10 @@
 import random
+import re
 import logging
 from Bio.Alphabet import IUPAC
 from Bio.Data import IUPACData
 from Bio.Seq import Seq
+from Bio.SeqUtils import GC
 from progress.bar import Bar
 
 class Draco:
@@ -15,22 +17,34 @@ class Draco:
     max_repeat_len = 20
     min_invrep_len = 12
     max_invrep_len = 12
+    max_stretch = 8
+    max_gc = 65
+    gc_window = 200
     max_repeat_attempts = 100
     max_sequence_attempts = 1000
     max_handicap = 1
 
-    def __init__(self, sequence, codons, check_repeats=True, min_repeat_len=None, max_repeat_len=None,
-                 check_invreps=True, min_invrep_len=None, max_invrep_len=None, max_repeat_attempts=None,
-                 max_sequence_attempts=None, max_handicap=None, progress=True):
+    def __init__(self, sequence, codons,
+                 check_repeats=True, min_repeat_len=None, max_repeat_len=None,
+                 check_invreps=True, min_invrep_len=None, max_invrep_len=None,
+                 check_stretch=True, max_stretch=None,
+                 check_gc=True, max_gc=None, gc_window=None,
+                 max_repeat_attempts=None, max_sequence_attempts=None,
+                 max_handicap=None, progress=True):
 
         self.sequence = sequence
         self.codons = codons
         self.check_repeats = check_repeats
         self.check_invreps = check_invreps
+        self.check_stretch = check_stretch
+        self.check_gc = check_gc
         self.min_repeat_len = self._default(min_repeat_len, self.min_repeat_len)
         self.max_repeat_len = self._default(max_repeat_len, self.max_repeat_len)
         self.min_invrep_len = self._default(min_invrep_len, self.min_invrep_len)
         self.max_invrep_len = self._default(max_invrep_len, self.max_invrep_len)
+        self.max_stretch = self._default(max_stretch, self.max_stretch)
+        self.max_gc = self._default(max_gc, self.max_gc)
+        self.gc_window = self._default(gc_window, self.gc_window)
         self.max_repeat_attempts = self._default(max_repeat_attempts, self.max_repeat_attempts)
         self.max_sequence_attempts = self._default(max_sequence_attempts, self.max_sequence_attempts)
         self.max_handicap = self._default(max_handicap, self.max_handicap)
@@ -110,7 +124,8 @@ class Draco:
                 handicap += 1
                 logging.info("Increasing handicap to", handicap)
             if count == self.max_sequence_attempts:
-                logging.error("Failed to find suitable sequence!")
+                logging.error("Failed to find a suitable sequence! Try increasing the number of attempts,"
+                              " the handicap or max repeat length")
                 return ""
         return sequence
 
@@ -214,12 +229,14 @@ class Draco:
             duplicates[curr] = length
         return count
 
-    def _check_repeats(self, rna, sequences, index):
+    def _check_fragment(self, rna, sequences, index):
         """
         Check if sequence has repeats
         """
         repeats = []
         inv_repeats = []
+        stretches = []
+        gc = 0
         if self.check_repeats:
             words = self._get_repeat_words(sequences[index - 1], rna)
             repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna, words=words)
@@ -227,8 +244,19 @@ class Draco:
             inv_words = self._get_repeat_words(sequences[index - 1], rna, inverse=True)
             inv_repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna,
                                              words=inv_words, inverse=True)
+        seq = sequences[index - 1] + rna
+        if self.check_stretch:
+            stretches = re.findall(r'((\w)\2{' + str(self.max_stretch - 1) + ',})', str(seq))
+        if self.check_gc:
+            end = len(seq) - self.gc_window if len(seq) > self.gc_window else 1
+            for start in range(0, end):
+                cur_gc = GC(seq[start:start+self.gc_window])
+                gc = cur_gc if cur_gc > gc else gc
+                if gc > self.max_gc:
+                    break
 
-        return len(repeats) == 0 and len(inv_repeats) == 0
+
+        return len(repeats) == 0 and len(inv_repeats) == 0 and len(stretches) == 0 and gc < self.max_gc
 
     def _compute_sequence(self):
         """
@@ -254,7 +282,7 @@ class Draco:
                 residues = self.residues.copy()
                 rna = self._compute_fragment(fragment)
                 if index > 0:
-                    if self._check_repeats(rna, sequences, index):
+                    if self._check_fragment(rna, sequences, index):
                         break
                     if take > self.max_repeat_attempts:
                         return False
