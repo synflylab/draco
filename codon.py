@@ -1,6 +1,9 @@
+from Bio.Alphabet import IUPAC
+from Bio.Data import IUPACData
+from Bio.Seq import Seq
 
 class CodonUsage:
-    dmel = """
+    Dmel = """
 UUU F 0.38 13.2 (289916)  UCU S 0.08  7.0 (154186)  UAU Y 0.37 10.8 (236811)  UGU C 0.29  5.4 (118088)
 UUC F 0.62 21.8 (479372)  UCC S 0.24 19.6 (429341)  UAC Y 0.63 18.4 (403675)  UGC C 0.71 13.2 (288853)
 UUA L 0.05  4.5 (097715)  UCA S 0.09  7.8 (171695)  UAA * 0.41  0.8 (017807)  UGA * 0.25  0.5 (010767)
@@ -68,13 +71,13 @@ class Codon:
     def __init__(self, string, protein=None, fraction=None, frequency=None):
         if protein is None:
             parsed = string.split()
-            self.rna = parsed[0]
-            self.protein = parsed[1]
+            self.rna = Seq(parsed[0], alphabet=IUPAC.ambiguous_rna)
+            self.protein = Seq(parsed[1], alphabet=IUPAC.protein)
             self.fraction = parsed[2]
             self.frequency = parsed[3]
         else:
-            self.rna = string
-            self.protein = protein
+            self.rna = Seq(string, alphabet=IUPAC.ambiguous_rna)
+            self.protein = Seq(protein, alphabet=IUPAC.protein)
             self.fraction = fraction
             self.frequency = frequency
 
@@ -82,4 +85,4 @@ class Codon:
         return self.__str__()
 
     def __str__(self):
-        return self.rna + '(' + self.protein + ')'
+        return self.rna + '(' + self.protein + '): ' + "{:.2f}".format(float(self.fraction))

@@ -1,11 +1,15 @@
+from Bio.Alphabet import IUPAC
 from Bio.Data import IUPACData
+from Bio.Seq import Seq
 
 class TALrepeat:
 
     A = 'LTPDQVVAIAS'
     B = 'GGKQALETVQRLLPVLCQDHG'
+    C = 'GGKQALE'
 
-    def __init__(self, nucleotide):
+    def __init__(self, nucleotide, last=False):
+        self.last = last
         if nucleotide.upper() == 'G' or nucleotide.upper() == 'R':
             self.rvd = 'NN'
         elif nucleotide.upper() == 'A':
@@ -26,23 +30,45 @@ class TALrepeat:
         if self.rvd is None:
             return None
         else:
-            return self.A + self.rvd + self.B
+            if self.last:
+                return Seq(self.A + self.rvd + self.C, alphabet=IUPAC.protein)
+            else:
+                return Seq(self.A + self.rvd + self.B, alphabet=IUPAC.protein)
+
+    def template(self):
+        return Seq(self.A + 'XX' + self.B, alphabet=IUPAC.protein)
 
 
 class TALE:
 
-    def __init__(self, target):
+    def __init__(self, target, upstream=None, downstream=None):
         self.target = target
         self.repeats = []
+        self.upstream = upstream
+        self.downstream = downstream
+        index = 0
         for n in target:
-            self.repeats.append(TALrepeat(n))
+            index += 1
+            if index == len(target):
+                self.repeats.append(TALrepeat(n, True))
+            else:
+                self.repeats.append(TALrepeat(n))
 
     def __str__(self):
-        return self.sequence()
+        return self.protein()
 
-    def sequence(self):
-        sequence = ''
+    def protein(self):
+        sequence = Seq('', alphabet=IUPAC.protein)
         for r in self.repeats:
-            sequence = sequence + r.sequence() + '\n'
+            sequence = sequence + r.sequence()
 
         return sequence
+
+    def sequence(self):
+        return self.protein()
+
+    def repeat(self):
+        return self.repeats[0].template()
+
+    def n_repeats(self):
+        return len(self.repeats)
