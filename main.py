@@ -14,6 +14,8 @@ warnings.simplefilter('ignore', BiopythonWarning)
 
 parser = argparse.ArgumentParser(description='Direct Repeat Aware Codon Optimizer')
 parser.add_argument('sequence', help='TALE binding sequence')
+parser.add_argument('--upstream', help='Sequence to include upstream of the repeats', default='')
+parser.add_argument('--downstream', help='Sequence to include downstream of the repeats', default='')
 parser.add_argument('--check-repeats', help='Check the optimized sequence for repeats', default=True)
 parser.add_argument('--repeat-len', default=20, help='Max allowed length of a repeat')
 parser.add_argument('--check-inv-repeats', help='Check the optimized sequence for inverse repeats', default=True)
@@ -26,6 +28,9 @@ parser.add_argument('--log', help='Logging level')
 parser.add_argument('--debug', help='Enable debug logging', action='store_true')
 args = parser.parse_args()
 
+upstream = 'DTGQLVKIAKRGGVTAMEAVHASRNALTGAPLN'
+downstream = 'SIVAQLSRPDPALAALTNDHLVALACLGGRPAM'
+
 if args.debug:
     args.log = 'DEBUG'
 
@@ -34,7 +39,9 @@ if args.log:
     logging.getLogger('BiopythonWarning').setLevel(logging.INFO)
 
 target = Seq(args.sequence, alphabet=IUPAC.ambiguous_dna)
-tale = TALE(args.sequence)
+upstream = Seq(args.upstream, alphabet=IUPAC.protein)
+downstream = Seq(args.downstream, alphabet=IUPAC.protein)
+tale = TALE(target, upstream=upstream, downstream=downstream)
 
 codons = CodonUsage(CodonUsage.Dmel)
 draco = Draco(tale, codons, args.check_repeats, args.repeat_len, args.repeat_len, args.check_inv_repeats,

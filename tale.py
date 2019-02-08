@@ -58,9 +58,10 @@ class TALE:
         return self.protein()
 
     def protein(self):
-        sequence = Seq('', alphabet=IUPAC.protein)
+        sequence = self.upstream
         for r in self.repeats:
-            sequence = sequence + r.sequence()
+            sequence += r.sequence()
+        sequence += self.downstream
 
         return sequence
 

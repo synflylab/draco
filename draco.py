@@ -96,8 +96,9 @@ class Draco:
         if self.progress:
             self.bar = Bar()
         while True:
-            self.bar.index = 0
-            self.bar.message = 'Computing sequence [' + str(count) + '/' + str(self.max_sequence_attempts) + ']'
+            if self.progress:
+                self.bar.index = 0
+                self.bar.message = 'Computing sequence [' + str(count) + '/' + str(self.max_sequence_attempts) + ']'
             logging.debug("Computing sequence: " + str(count) + " attempt...")
             self._analyse_codons(handicap)
             sequence = self._compute_sequence()
@@ -213,18 +214,21 @@ class Draco:
             duplicates[curr] = length
         return count
 
-    def _has_repeats(self, sequence, min_length=None, max_length=None, words=None, inverse=False):
+    def _check_repeats(self, rna, sequences, index):
         """
-        Check if sequence has direct repeats
+        Check if sequence has repeats
+        """
+        repeats = []
+        inv_repeats = []
+        if self.check_repeats:
+            words = self._get_repeat_words(sequences[index - 1], rna)
+            repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna, words=words)
+        if self.check_invreps:
+            inv_words = self._get_repeat_words(sequences[index - 1], rna, inverse=True)
+            inv_repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna,
+                                             words=inv_words, inverse=True)
 
-        :param sequence:
-        :param min_length:
-        :param max_length:
-        :param words:
-        :return:
-        """
-        min_length, max_length = self._min_max_len(min_length, max_length, inverse)
-        return len(self._find_repeats(sequence, min_length, max_length, words, inverse)) > 0
+        return len(repeats) == 0 and len(inv_repeats) == 0
 
     def _compute_sequence(self):
         """
@@ -232,25 +236,25 @@ class Draco:
 
         :return:
         """
+
+        fragments = []
+        if self.sequence.upstream:
+            fragments.append(self.sequence.upstream)
+        fragments += [r.sequence() for r in self.sequence.repeats]
+        if self.sequence.downstream:
+            fragments.append(self.sequence.downstream)
+
         sequences = []
-        self.bar.max = len(self.sequence.repeats)
-        for index, repeat in enumerate(self.sequence.repeats):
+        if self.progress:
+            self.bar.max = len(fragments)
+        for index, fragment in enumerate(fragments):
             take = 0
             while True:
                 max_ocr = self.max_ocr.copy()
                 residues = self.residues.copy()
-                rna = self._compute_repeat(repeat.sequence())
+                rna = self._compute_fragment(fragment)
                 if index > 0:
-                    repeats = []
-                    inv_repeats = []
-                    if self.check_repeats:
-                        words = self._get_repeat_words(sequences[index - 1], rna)
-                        repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna, words=words)
-                    if self.check_invreps:
-                        inv_words = self._get_repeat_words(sequences[index - 1], rna, inverse=True)
-                        inv_repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna,
-                                                         words=inv_words, inverse=True)
-                    if len(repeats) == 0 and len(inv_repeats) == 0:
+                    if self._check_repeats(rna, sequences, index):
                         break
                     if take > self.max_repeat_attempts:
                         return False
@@ -260,10 +264,12 @@ class Draco:
                 self.residues = residues
                 take += 1
             sequences.append(rna)
-            self.bar.next()
+            if self.progress:
+                self.bar.next()
+
         return sum(sequences, Seq('', IUPAC.ambiguous_rna))
 
-    def _compute_repeat(self, sequence):
+    def _compute_fragment(self, sequence):
         """
         Codon-optimize a single repeat
 
