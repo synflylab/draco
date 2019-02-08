@@ -13,9 +13,9 @@ from codon import CodonUsage
 warnings.simplefilter('ignore', BiopythonWarning)
 
 parser = argparse.ArgumentParser(description='Direct Repeat Aware Codon Optimizer')
-parser.add_argument('sequence', help='TALE binding sequence')
-parser.add_argument('--upstream', help='Sequence to include upstream of the repeats', default='')
-parser.add_argument('--downstream', help='Sequence to include downstream of the repeats', default='')
+parser.add_argument('sequence', help='TALE binding sequence (DNA)')
+parser.add_argument('--upstream', help='Protein sequence to include upstream of the repeats', default='')
+parser.add_argument('--downstream', help='Protein sequence to include downstream of the repeats', default='')
 parser.add_argument('--check-repeats', help='Check the optimized sequence for repeats', default=True)
 parser.add_argument('--repeat-len', default=20, help='Max allowed length of a repeat')
 parser.add_argument('--check-inv-repeats', help='Check the optimized sequence for inverse repeats', default=True)
