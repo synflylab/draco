@@ -24,7 +24,7 @@ class Draco:
     max_sequence_attempts = 1000
     max_handicap = 1
 
-    def __init__(self, sequence, codons,
+    def __init__(self, sequence, codons, avoid,
                  check_repeats=True, min_repeat_len=None, max_repeat_len=None,
                  check_invreps=True, min_invrep_len=None, max_invrep_len=None,
                  check_stretch=True, max_stretch=None,
@@ -34,6 +34,7 @@ class Draco:
 
         self.sequence = sequence
         self.codons = codons
+        self.avoid = avoid
         self.check_repeats = check_repeats
         self.check_invreps = check_invreps
         self.check_stretch = check_stretch
@@ -237,6 +238,9 @@ class Draco:
         inv_repeats = []
         stretches = []
         gc = 0
+
+        seq = sequences[index - 1] + rna
+
         if self.check_repeats:
             words = self._get_repeat_words(sequences[index - 1], rna)
             repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna, words=words)
@@ -244,7 +248,6 @@ class Draco:
             inv_words = self._get_repeat_words(sequences[index - 1], rna, inverse=True)
             inv_repeats = self._find_repeats(sum(sequences, Seq('', IUPAC.ambiguous_rna)) + rna,
                                              words=inv_words, inverse=True)
-        seq = sequences[index - 1] + rna
         if self.check_stretch:
             stretches = re.findall(r'((\w)\2{' + str(self.max_stretch - 1) + ',})', str(seq))
         if self.check_gc:
@@ -255,8 +258,15 @@ class Draco:
                 if gc > self.max_gc:
                     break
 
+        forbidden = False
+        if len(self.avoid > 0):
+            for word in self.avoid:
+                forbidden = (seq.find(word) != -1)
+                if forbidden:
+                    break
 
-        return len(repeats) == 0 and len(inv_repeats) == 0 and len(stretches) == 0 and gc < self.max_gc
+        return len(repeats) == 0 and len(inv_repeats) == 0 and len(stretches) == 0 \
+            and gc < self.max_gc and (not forbidden)
 
     def _compute_sequence(self):
         """
