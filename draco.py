@@ -24,7 +24,7 @@ class Draco:
     max_sequence_attempts = 1000
     max_handicap = 1
 
-    def __init__(self, sequence, codons, avoid,
+    def __init__(self, sequence, codons, avoid, prepend, append,
                  check_repeats=True, min_repeat_len=None, max_repeat_len=None,
                  check_invreps=True, min_invrep_len=None, max_invrep_len=None,
                  check_stretch=True, max_stretch=None,
@@ -35,6 +35,8 @@ class Draco:
         self.sequence = sequence
         self.codons = codons
         self.avoid = avoid
+        self.prepend = Seq(prepend, alphabet=IUPAC.ambiguous_dna).transcribe()
+        self.append = Seq(append, alphabet=IUPAC.ambiguous_dna).transcribe()
         self.check_repeats = check_repeats
         self.check_invreps = check_invreps
         self.check_stretch = check_stretch
@@ -259,7 +261,7 @@ class Draco:
                     break
 
         forbidden = False
-        if len(self.avoid > 0):
+        if self.avoid:
             for word in self.avoid:
                 forbidden = (seq.find(word) != -1)
                 if forbidden:
@@ -282,16 +284,16 @@ class Draco:
         if self.sequence.downstream:
             fragments.append(self.sequence.downstream)
 
-        sequences = []
+        sequences = [self.prepend]
         if self.progress:
-            self.bar.max = len(fragments)
+            self.bar.max = len(fragments) + 2
         for index, fragment in enumerate(fragments):
             take = 0
             while True:
                 max_ocr = self.max_ocr.copy()
                 residues = self.residues.copy()
                 rna = self._compute_fragment(fragment)
-                if index > 0:
+                if index >= 0:
                     if self._check_fragment(rna, sequences, index):
                         break
                     if take > self.max_repeat_attempts:
@@ -304,6 +306,12 @@ class Draco:
             sequences.append(rna)
             if self.progress:
                 self.bar.next()
+
+        if not self._check_fragment(self.append, sequences, len(fragments) - 1):
+            return False
+        else:
+            sequences.append(self.append)
+            self.bar.next()
 
         return sum(sequences, Seq('', IUPAC.ambiguous_rna))
 
