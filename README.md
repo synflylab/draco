@@ -1,5 +1,5 @@
 # DRACO
-### Direct Repeat Aware Codon Optimizer
+### Direct Repeat Aware Codon Optimizer for TAL effectors:
 
 DRACO aims to ease the design and synthesis of gene fragments encoding for
 highly repetitive protein sequence, such as TALE DNA binding domains by
